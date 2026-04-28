@@ -3,6 +3,8 @@
 Minimal Spring Boot backend for a Stripe Terminal-powered power bank station.
 Deploys to Google Cloud Run.
 
+**Production URL:** https://pos.cuub.tech
+
 ## What This Does
 
 This is the smallest possible backend that lets your Android station app use
@@ -46,8 +48,29 @@ chmod +x deploy.sh
 ./deploy.sh
 ```
 
-The script outputs your service URL. Use that as `BACKEND_BASE_URL` in your
-Android app.
+The script outputs the Cloud Run service URL. In production the Android app
+should target the custom domain instead:
+
+```
+BACKEND_BASE_URL = "https://pos.cuub.tech"
+```
+
+### Custom domain (pos.cuub.tech)
+
+The custom domain is mapped to Cloud Run via a Cloud Run domain mapping.
+One-time setup:
+
+```bash
+gcloud beta run domain-mappings create \
+    --service station-backend \
+    --domain pos.cuub.tech \
+    --region us-central1
+```
+
+The command prints DNS records (CNAME or A/AAAA depending on root vs subdomain)
+that must be added at the DNS registrar for `cuub.tech`. Once DNS propagates
+(usually a few minutes), Google provisions a managed TLS certificate
+automatically.
 
 ## Stripe Setup
 
@@ -56,7 +79,7 @@ Before this works you need to:
 1. Create a **Location** in Stripe Dashboard → Terminal → Locations
 2. Register your reader(s) to that location
 3. Get your **Secret Key** (sk_test_... for testing, sk_live_... for production)
-4. Set up a **webhook** pointing to `https://your-cloud-run-url/api/webhook`
+4. Set up a **webhook** pointing to `https://pos.cuub.tech/api/webhook`
    - Get the webhook signing secret (whsec_...) and store it in Secret Manager
 
 ## Android Side
