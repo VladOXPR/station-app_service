@@ -22,6 +22,22 @@ set -e
 SERVICE_NAME="station-backend"
 REGION="us-central1"  # change to your preferred region
 
+# Sanity check: warn if the Stripe secret hasn't been created yet. Without it,
+# Stripe API calls will fail at runtime (the app still starts, but no payments
+# can be processed).
+if ! gcloud secrets describe stripe-secret-key >/dev/null 2>&1; then
+    echo "WARNING: secret 'stripe-secret-key' does not exist in this project."
+    echo "Create it before live traffic:"
+    echo "  echo -n 'sk_live_or_test_...' | gcloud secrets create stripe-secret-key --data-file=-"
+    echo ""
+    SECRETS_FLAG=""
+else
+    SECRETS_FLAG="--set-secrets=STRIPE_SECRET_KEY=stripe-secret-key:latest"
+    if gcloud secrets describe stripe-webhook-secret >/dev/null 2>&1; then
+        SECRETS_FLAG="${SECRETS_FLAG},STRIPE_WEBHOOK_SECRET=stripe-webhook-secret:latest"
+    fi
+fi
+
 echo "Deploying $SERVICE_NAME to Cloud Run in $REGION..."
 
 gcloud run deploy "$SERVICE_NAME" \
@@ -29,7 +45,8 @@ gcloud run deploy "$SERVICE_NAME" \
     --region "$REGION" \
     --platform managed \
     --allow-unauthenticated \
-    --set-secrets "STRIPE_SECRET_KEY=stripe-secret-key:latest,STRIPE_WEBHOOK_SECRET=stripe-webhook-secret:latest" \
+    ${SECRETS_FLAG} \
+    --cpu-boost \
     --memory 512Mi \
     --cpu 1 \
     --min-instances 0 \
